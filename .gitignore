@@ -1,0 +1,8 @@
+﻿.idea
+.git
+obj
+bin
+/obj/*
+/bin/
+appsettings.json
+/appsettings.json
