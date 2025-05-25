@@ -1,8 +1,9 @@
-﻿namespace BugTracker.Models.Enums;
+﻿// Models/Enums/ProductType.cs
+namespace BugTracker.Models.Enums;
 
 public enum ProductType
 {
     InteractiveResponseTechnology,
-    TM,
+    TM, // TrialManager
     ExternalModule
 }
