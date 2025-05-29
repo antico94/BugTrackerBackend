@@ -68,7 +68,6 @@ namespace BugTracker.Controllers
                         cb.AssessedImpactedVersions,
                         cb.IsAssessed,
                         cb.AssessedAt,
-                        cb.AssessedBy,
                         cb.CreatedAt,
                         cb.ResolvedAt,
                         Tasks = cb.Tasks.Select(t => new TaskSummaryDto
@@ -101,7 +100,6 @@ namespace BugTracker.Controllers
                     AssessedImpactedVersions = string.IsNullOrEmpty(cb.AssessedImpactedVersions) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(cb.AssessedImpactedVersions),
                     IsAssessed = cb.IsAssessed,
                     AssessedAt = cb.AssessedAt,
-                    AssessedBy = cb.AssessedBy,
                     CreatedAt = cb.CreatedAt,
                     ResolvedAt = cb.ResolvedAt,
                     Tasks = cb.Tasks,
@@ -153,7 +151,6 @@ namespace BugTracker.Controllers
                         cb.AssessedImpactedVersions,
                         cb.IsAssessed,
                         cb.AssessedAt,
-                        cb.AssessedBy,
                         cb.CreatedAt,
                         cb.ResolvedAt,
                         Tasks = cb.Tasks.Select(t => new TaskSummaryDto
@@ -190,7 +187,6 @@ namespace BugTracker.Controllers
                     AssessedImpactedVersions = string.IsNullOrEmpty(coreBugData.AssessedImpactedVersions) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(coreBugData.AssessedImpactedVersions),
                     IsAssessed = coreBugData.IsAssessed,
                     AssessedAt = coreBugData.AssessedAt,
-                    AssessedBy = coreBugData.AssessedBy,
                     CreatedAt = coreBugData.CreatedAt,
                     ResolvedAt = coreBugData.ResolvedAt,
                     Tasks = coreBugData.Tasks,
@@ -324,12 +320,29 @@ namespace BugTracker.Controllers
 
         // POST: api/CoreBug/{id}/assess
         [HttpPost("{id}/assess")]
-        public async Task<ActionResult<CoreBugResponseDto>> AssessCoreBug(Guid id, BugAssessmentDto assessmentDto)
+        public async Task<ActionResult<CoreBugResponseDto>> AssessCoreBug(Guid id, [FromBody] BugAssessmentDto assessmentDto)
         {
             try
             {
+                // Log the incoming data for debugging
+                _logger.LogInformation("Assessing bug {BugId} with data: {@AssessmentDto}", id, assessmentDto);
+
+                // Validate input
+                if (assessmentDto == null)
+                {
+                    _logger.LogWarning("AssessmentDto is null for bug {BugId}", id);
+                    return BadRequest("Assessment data is required");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Model validation failed for bug {BugId}: {@ModelState}", id, ModelState);
+                    return BadRequest(ModelState);
+                }
+
                 if (id != assessmentDto.BugId)
                 {
+                    _logger.LogWarning("Bug ID mismatch: URL={UrlId}, DTO={DtoId}", id, assessmentDto.BugId);
                     return BadRequest("Bug ID mismatch");
                 }
 
@@ -339,11 +352,13 @@ namespace BugTracker.Controllers
 
                 if (coreBug == null)
                 {
+                    _logger.LogWarning("Bug not found: {BugId}", id);
                     return NotFound($"Core bug with ID {id} not found");
                 }
 
                 if (coreBug.IsAssessed)
                 {
+                    _logger.LogWarning("Bug already assessed: {BugId}", id);
                     return BadRequest("This bug has already been assessed");
                 }
 
@@ -352,7 +367,6 @@ namespace BugTracker.Controllers
                 coreBug.AssessedImpactedVersions = JsonSerializer.Serialize(assessmentDto.AssessedImpactedVersions);
                 coreBug.IsAssessed = true;
                 coreBug.AssessedAt = DateTime.UtcNow;
-                coreBug.AssessedBy = assessmentDto.AssessedBy ?? "System";
 
                 // Generate tasks for impacted products
                 var generatedTasks = await _taskGenerationService.GenerateTasksForAssessedBug(coreBug);
@@ -361,6 +375,8 @@ namespace BugTracker.Controllers
                 _context.CustomTasks.AddRange(generatedTasks);
 
                 await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Bug {BugId} assessed successfully", id);
 
                 // Return updated bug with new tasks
                 var responseDto = new CoreBugResponseDto
@@ -378,7 +394,6 @@ namespace BugTracker.Controllers
                     AssessedImpactedVersions = string.IsNullOrEmpty(coreBug.AssessedImpactedVersions) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(coreBug.AssessedImpactedVersions),
                     IsAssessed = coreBug.IsAssessed,
                     AssessedAt = coreBug.AssessedAt,
-                    AssessedBy = coreBug.AssessedBy,
                     CreatedAt = coreBug.CreatedAt,
                     ResolvedAt = coreBug.ResolvedAt,
                     Tasks = generatedTasks.Select(t => new TaskSummaryDto
@@ -398,7 +413,7 @@ namespace BugTracker.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error assessing core bug {BugId}", id);
-                return StatusCode(500, "An error occurred while assessing the core bug");
+                return StatusCode(500, new { message = "An error occurred while assessing the core bug", details = ex.Message });
             }
         }
 

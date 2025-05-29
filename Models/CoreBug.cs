@@ -13,16 +13,15 @@ public class CoreBug
     public Status Status { get; set; }
     
     // JIRA Import Fields
-    public string FoundInBuild { get; set; }
-    public string AffectedVersions { get; set; } // JSON array from JIRA XML
+    public string? FoundInBuild { get; set; }
+    public string? AffectedVersions { get; set; } // JSON array from JIRA XML
     public BugSeverity Severity { get; set; }
     
     // Assessment Fields (set via UI)
     public ProductType? AssessedProductType { get; set; } // User-selected during assessment
-    public string AssessedImpactedVersions { get; set; } // User-selected versions JSON
+    public string? AssessedImpactedVersions { get; set; } // User-selected versions JSON
     public bool IsAssessed { get; set; } = false;
     public DateTime? AssessedAt { get; set; }
-    public string AssessedBy { get; set; }
     
     // Timestamps
     public DateTime CreatedAt { get; set; }

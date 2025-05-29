@@ -122,7 +122,6 @@ public class BugTrackerContext : DbContext
             entity.Property(e => e.BugDescription).HasColumnType("ntext");
             entity.Property(e => e.AffectedVersions).HasColumnType("ntext");
             entity.Property(e => e.AssessedImpactedVersions).HasColumnType("ntext");
-            entity.Property(e => e.AssessedBy).HasMaxLength(100);
             
             // Index on JiraKey for performance
             entity.HasIndex(e => e.JiraKey).IsUnique();
