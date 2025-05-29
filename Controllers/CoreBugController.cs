@@ -320,29 +320,12 @@ namespace BugTracker.Controllers
 
         // POST: api/CoreBug/{id}/assess
         [HttpPost("{id}/assess")]
-        public async Task<ActionResult<CoreBugResponseDto>> AssessCoreBug(Guid id, [FromBody] BugAssessmentDto assessmentDto)
+        public async Task<ActionResult<CoreBugResponseDto>> AssessCoreBug(Guid id, BugAssessmentDto assessmentDto)
         {
             try
             {
-                // Log the incoming data for debugging
-                _logger.LogInformation("Assessing bug {BugId} with data: {@AssessmentDto}", id, assessmentDto);
-
-                // Validate input
-                if (assessmentDto == null)
-                {
-                    _logger.LogWarning("AssessmentDto is null for bug {BugId}", id);
-                    return BadRequest("Assessment data is required");
-                }
-
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogWarning("Model validation failed for bug {BugId}: {@ModelState}", id, ModelState);
-                    return BadRequest(ModelState);
-                }
-
                 if (id != assessmentDto.BugId)
                 {
-                    _logger.LogWarning("Bug ID mismatch: URL={UrlId}, DTO={DtoId}", id, assessmentDto.BugId);
                     return BadRequest("Bug ID mismatch");
                 }
 
@@ -352,13 +335,11 @@ namespace BugTracker.Controllers
 
                 if (coreBug == null)
                 {
-                    _logger.LogWarning("Bug not found: {BugId}", id);
                     return NotFound($"Core bug with ID {id} not found");
                 }
 
                 if (coreBug.IsAssessed)
                 {
-                    _logger.LogWarning("Bug already assessed: {BugId}", id);
                     return BadRequest("This bug has already been assessed");
                 }
 
@@ -375,8 +356,6 @@ namespace BugTracker.Controllers
                 _context.CustomTasks.AddRange(generatedTasks);
 
                 await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Bug {BugId} assessed successfully", id);
 
                 // Return updated bug with new tasks
                 var responseDto = new CoreBugResponseDto
@@ -413,7 +392,7 @@ namespace BugTracker.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error assessing core bug {BugId}", id);
-                return StatusCode(500, new { message = "An error occurred while assessing the core bug", details = ex.Message });
+                return StatusCode(500, "An error occurred while assessing the core bug");
             }
         }
 
