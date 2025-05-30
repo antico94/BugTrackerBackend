@@ -227,7 +227,7 @@ namespace BugTracker.Controllers
                     AffectedVersions = JsonSerializer.Serialize(createCoreBugDto.AffectedVersions ?? new List<string>()),
                     Severity = createCoreBugDto.Severity,
                     CreatedAt = DateTime.UtcNow,
-                    IsAssessed = false
+                    IsAssessed = true
                 };
 
                 _context.CoreBugs.Add(coreBug);
