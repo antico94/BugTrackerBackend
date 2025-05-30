@@ -1,4 +1,4 @@
-﻿// Controllers/CoreBugController.cs
+﻿// Controllers/CoreBugController.cs - Updated with XML import implementation
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BugTracker.Data;
@@ -7,6 +7,7 @@ using BugTracker.DTOs;
 using BugTracker.Models.Enums;
 using BugTracker.Services;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace BugTracker.Controllers
 {
@@ -227,7 +228,7 @@ namespace BugTracker.Controllers
                     AffectedVersions = JsonSerializer.Serialize(createCoreBugDto.AffectedVersions ?? new List<string>()),
                     Severity = createCoreBugDto.Severity,
                     CreatedAt = DateTime.UtcNow,
-                    IsAssessed = true
+                    IsAssessed = false
                 };
 
                 _context.CoreBugs.Add(coreBug);
@@ -448,7 +449,7 @@ namespace BugTracker.Controllers
                 using var reader = new StreamReader(file.OpenReadStream());
                 var xmlContent = await reader.ReadToEndAsync();
 
-                // Parse XML and extract bugs (you'll need to implement this)
+                // Parse XML and extract bugs
                 var bugs = ParseJiraXml(xmlContent);
 
                 var importedCount = 0;
@@ -466,16 +467,22 @@ namespace BugTracker.Controllers
                             continue;
                         }
 
+                        // Parse severity from string to enum
+                        if (!Enum.TryParse<BugSeverity>(bugDto.Severity, true, out var severity))
+                        {
+                            severity = BugSeverity.None; // Default fallback
+                        }
+
                         var coreBug = new CoreBug
                         {
                             BugId = Guid.NewGuid(),
                             JiraKey = bugDto.Key,
                             BugTitle = bugDto.Title,
                             BugDescription = bugDto.Description,
-                            Severity = Enum.Parse<BugSeverity>(bugDto.Severity, true),
+                            Severity = severity,
                             FoundInBuild = bugDto.FoundInBuild,
                             AffectedVersions = JsonSerializer.Serialize(bugDto.AffectedVersions),
-                            JiraLink = $"https://jira.company.com/browse/{bugDto.Key}",
+                            JiraLink = bugDto.JiraLink, // Use the actual link from XML
                             Status = Status.New,
                             CreatedAt = DateTime.UtcNow,
                             IsAssessed = false
@@ -487,10 +494,14 @@ namespace BugTracker.Controllers
                     catch (Exception ex)
                     {
                         errors.Add($"Failed to import bug {bugDto.Key}: {ex.Message}");
+                        _logger.LogWarning(ex, "Failed to import bug {BugKey}", bugDto.Key);
                     }
                 }
 
-                await _context.SaveChangesAsync();
+                if (importedCount > 0)
+                {
+                    await _context.SaveChangesAsync();
+                }
 
                 return Ok(new BulkImportResultDto
                 {
@@ -553,9 +564,165 @@ namespace BugTracker.Controllers
 
         private List<BugImportDto> ParseJiraXml(string xmlContent)
         {
-            // TODO: Implement XML parsing logic
-            // This should parse your JIRA XML export and extract bug information
-            throw new NotImplementedException("XML parsing logic needed");
+            try
+            {
+                var bugs = new List<BugImportDto>();
+                var doc = XDocument.Parse(xmlContent);
+
+                // JIRA RSS XML structure: <rss><channel><item>...</item></channel></rss>
+                var items = doc.Descendants("item");
+
+                foreach (var item in items)
+                {
+                    try
+                    {
+                        // Extract basic fields
+                        var key = item.Element("key")?.Value?.Trim();
+                        var title = item.Element("title")?.Value?.Trim();
+                        var description = item.Element("description")?.Value?.Trim() ?? 
+                                        item.Element("summary")?.Value?.Trim();
+                        var jiraLink = item.Element("link")?.Value?.Trim();
+
+                        // Skip if no key found
+                        if (string.IsNullOrEmpty(key))
+                        {
+                            _logger.LogWarning("Skipping item with no JIRA key");
+                            continue;
+                        }
+
+                        // Clean up title - remove JIRA key prefix if present
+                        if (!string.IsNullOrEmpty(title) && title.StartsWith($"[{key}]"))
+                        {
+                            title = title.Substring($"[{key}]".Length).Trim();
+                        }
+
+                        // Extract severity from custom fields
+                        var severity = ExtractSeverityFromCustomFields(item);
+                        
+                        // Fallback to priority if no severity found
+                        if (string.IsNullOrEmpty(severity))
+                        {
+                            var priority = item.Element("priority")?.Value?.Trim();
+                            severity = MapPriorityToSeverity(priority);
+                        }
+
+                        // Extract "Found in Build" from custom fields
+                        var foundInBuild = ExtractFoundInBuildFromCustomFields(item);
+
+                        // Extract affected versions
+                        var affectedVersions = item.Elements("version")
+                            .Select(v => v.Value?.Trim())
+                            .Where(v => !string.IsNullOrEmpty(v))
+                            .ToList();
+
+                        var bugDto = new BugImportDto
+                        {
+                            Key = key,
+                            Title = title ?? "No Title",
+                            Description = description ?? "No Description",
+                            Severity = severity ?? "None",
+                            FoundInBuild = foundInBuild,
+                            AffectedVersions = affectedVersions,
+                            JiraLink = jiraLink ?? $"https://jira.company.com/browse/{key}" // Fallback if no link found
+                        };
+
+                        bugs.Add(bugDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error parsing individual bug item in XML");
+                        continue; // Skip this item and continue with others
+                    }
+                }
+
+                _logger.LogInformation("Successfully parsed {BugCount} bugs from XML", bugs.Count);
+                return bugs;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing JIRA XML");
+                throw new InvalidOperationException("Failed to parse XML content. Please ensure it's a valid JIRA RSS export.", ex);
+            }
+        }
+
+        private string? ExtractSeverityFromCustomFields(XElement item)
+        {
+            try
+            {
+                var customFields = item.Element("customfields");
+                if (customFields == null) return null;
+
+                // Look for severity custom field
+                var severityField = customFields.Elements("customfield")
+                    .FirstOrDefault(cf => 
+                        cf.Element("customfieldname")?.Value?.Equals("Severity", StringComparison.OrdinalIgnoreCase) == true);
+
+                if (severityField != null)
+                {
+                    var severityValue = severityField.Element("customfieldvalues")
+                        ?.Element("customfieldvalue")?.Value?.Trim();
+                    
+                    // Remove CDATA wrapper if present
+                    if (!string.IsNullOrEmpty(severityValue))
+                    {
+                        return severityValue;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error extracting severity from custom fields");
+                return null;
+            }
+        }
+
+        private string? ExtractFoundInBuildFromCustomFields(XElement item)
+        {
+            try
+            {
+                var customFields = item.Element("customfields");
+                if (customFields == null) return null;
+
+                // Look for "Found in Build" custom field
+                var foundInBuildField = customFields.Elements("customfield")
+                    .FirstOrDefault(cf => 
+                        cf.Element("customfieldname")?.Value?.Equals("Found in Build", StringComparison.OrdinalIgnoreCase) == true);
+
+                if (foundInBuildField != null)
+                {
+                    var foundInBuildValue = foundInBuildField.Element("customfieldvalues")
+                        ?.Element("customfieldvalue")?.Value?.Trim();
+                    
+                    if (!string.IsNullOrEmpty(foundInBuildValue))
+                    {
+                        return foundInBuildValue;
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error extracting Found in Build from custom fields");
+                return null;
+            }
+        }
+
+        private string MapPriorityToSeverity(string? priority)
+        {
+            if (string.IsNullOrEmpty(priority)) return "None";
+
+            return priority.ToLowerInvariant() switch
+            {
+                "critical" or "highest" => "Critical",
+                "high" or "major" => "Major",
+                "medium" or "normal" => "Moderate",
+                "low" or "minor" => "Minor",
+                "lowest" or "trivial" => "None",
+                _ => "None"
+            };
         }
 
         private async Task<bool> CoreBugExists(Guid id)
