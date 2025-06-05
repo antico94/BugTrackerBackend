@@ -736,5 +736,50 @@ namespace BugTracker.Controllers
         {
             return await _context.CustomTasks.AnyAsync(e => e.TaskId == id);
         }
+
+        // TEMPORARY: Fix task step navigation for corrupted workflows
+        [HttpPost("fix-step-navigation")]
+        public async Task<IActionResult> FixStepNavigation()
+        {
+            try
+            {
+                var tasks = await _context.CustomTasks
+                    .Include(t => t.TaskSteps)
+                    .ToListAsync();
+
+                int fixedCount = 0;
+                
+                foreach (var task in tasks)
+                {
+                    var severityStep = task.TaskSteps.FirstOrDefault(s => s.Action == "Check Severity");
+                    if (severityStep != null)
+                    {
+                        var keepAsNewStep = task.TaskSteps.FirstOrDefault(s => s.Action == "Keep as New");
+                        var wontFixStep = task.TaskSteps.FirstOrDefault(s => s.Action == "Close as Won't Fix");
+                        
+                        if (keepAsNewStep != null && wontFixStep != null)
+                        {
+                            // Fix the navigation if it's wrong
+                            if (severityStep.NextStepIfYes != keepAsNewStep.TaskStepId || 
+                                severityStep.NextStepIfNo != wontFixStep.TaskStepId)
+                            {
+                                severityStep.NextStepIfYes = keepAsNewStep.TaskStepId;
+                                severityStep.NextStepIfNo = wontFixStep.TaskStepId;
+                                fixedCount++;
+                            }
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                
+                return Ok(new { message = $"Fixed step navigation for {fixedCount} tasks" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fixing step navigation");
+                return StatusCode(500, "An error occurred while fixing step navigation");
+            }
+        }
     }
 }
