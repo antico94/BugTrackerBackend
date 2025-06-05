@@ -593,7 +593,7 @@ namespace BugTracker.Controllers
             if (currentStep.IsTerminal && currentStep.Status == Status.Done)
                 return null; // No current step - task is complete
 
-            // If it's a completed decision step, follow the decision path
+            // If it's a completed decision step, follow the decision path ONLY
             if (currentStep.IsDecision && currentStep.Status == Status.Done)
             {
                 Guid? nextStepId = null;
@@ -609,6 +609,10 @@ namespace BugTracker.Controllers
                     if (nextStep != null)
                         return FollowDecisionTreePath(nextStep, allSteps);
                 }
+                
+                // For decision steps, if no valid next step found via decision path, 
+                // DO NOT fall back to order-based navigation - return null
+                return null;
             }
             
             // If it's a completed non-decision step, find the next step in the sequence
