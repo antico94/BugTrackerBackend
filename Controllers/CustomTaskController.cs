@@ -621,7 +621,7 @@ namespace BugTracker.Controllers
             return nextInSequence?.TaskStepId;
         }
 
-        private static bool IsTaskPathCompleted(List<TaskStep> taskSteps)
+        private static bool IsTaskPathCompleted(ICollection<TaskStep> taskSteps)
         {
             if (!taskSteps.Any())
                 return false;
@@ -646,7 +646,7 @@ namespace BugTracker.Controllers
             return currentStepId == null;
         }
 
-        private static int GetActualCompletedStepsCount(List<TaskStep> taskSteps)
+        private static int GetActualCompletedStepsCount(ICollection<TaskStep> taskSteps)
         {
             if (!taskSteps.Any())
                 return 0;
@@ -656,7 +656,7 @@ namespace BugTracker.Controllers
             return pathSteps.Count(s => s.Status == Status.Done);
         }
 
-        private static int GetActualTotalStepsCount(List<TaskStep> taskSteps)
+        private static int GetActualTotalStepsCount(ICollection<TaskStep> taskSteps)
         {
             if (!taskSteps.Any())
                 return 0;
@@ -666,7 +666,7 @@ namespace BugTracker.Controllers
             return pathSteps.Count;
         }
 
-        private static List<TaskStep> GetActualPathSteps(List<TaskStep> allSteps)
+        private static List<TaskStep> GetActualPathSteps(ICollection<TaskStep> allSteps)
         {
             var pathSteps = new List<TaskStep>();
             if (!allSteps.Any())
