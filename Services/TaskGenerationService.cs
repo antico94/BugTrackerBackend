@@ -149,6 +149,10 @@ public class TaskGenerationService
     {
         var steps = new List<TaskStep>();
         
+        _logger.LogInformation("=== TASK GENERATION DEBUG START ===");
+        _logger.LogInformation("TaskId: {TaskId}, ProductVersion: {ProductVersion}, BugSeverity: {BugSeverity}", 
+            taskId, productVersion, bugSeverity);
+        
         // Step 1: Is version affected? (AUTO)
         var step1 = new TaskStep
         {
@@ -333,6 +337,12 @@ public class TaskGenerationService
                 Notes = ""
             };
             
+            _logger.LogInformation("=== STEP CREATION COMPLETE ===");
+            _logger.LogInformation("step2No (Function Not Utilized) ID: {Step2NoId}, Order: {Order}", step2No.TaskStepId, step2No.Order);
+            _logger.LogInformation("step4 (Check Severity) ID: {Step4Id}, Order: {Order}, Decision: {Decision}", step4.TaskStepId, step4.Order, step4.DecisionAnswer);
+            _logger.LogInformation("step4No (Won't Fix) ID: {Step4NoId}, Order: {Order}", step4No.TaskStepId, step4No.Order);
+            _logger.LogInformation("step4Yes (Keep as New) ID: {Step4YesId}, Order: {Order}", step4Yes.TaskStepId, step4Yes.Order);
+            
             // Step 2: Clone bug (manual step after version check)
             var step2Clone = new TaskStep
             {
@@ -351,14 +361,33 @@ public class TaskGenerationService
             };
             
             // Set up navigation - correct workflow order
+            _logger.LogInformation("=== NAVIGATION SETUP START ===");
+            
             step1.NextStepIfYes = step2Clone.TaskStepId;  // Version Check → Clone Bug
+            _logger.LogInformation("step1.NextStepIfYes = {NextStepId} (Clone Bug)", step1.NextStepIfYes);
+            
             // No navigation from Clone Bug - it's a sequential step, goes to next in order (Preconditions)
             step2.NextStepIfNo = step2No.TaskStepId;      // Preconditions No → Function Not Utilized
+            _logger.LogInformation("step2.NextStepIfNo = {NextStepId} (Function Not Utilized)", step2.NextStepIfNo);
+            
             step2.NextStepIfYes = step3.TaskStepId;       // Preconditions Yes → Reproduction
+            _logger.LogInformation("step2.NextStepIfYes = {NextStepId} (Reproduction)", step2.NextStepIfYes);
+            
             step3.NextStepIfNo = step3No.TaskStepId;      // Reproduction No → Invalid
+            _logger.LogInformation("step3.NextStepIfNo = {NextStepId} (Invalid)", step3.NextStepIfNo);
+            
             step3.NextStepIfYes = step4.TaskStepId;       // Reproduction Yes → Severity
+            _logger.LogInformation("step3.NextStepIfYes = {NextStepId} (Severity)", step3.NextStepIfYes);
+            
             step4.NextStepIfNo = step4No.TaskStepId;      // Severity No → Won't Fix
+            _logger.LogInformation("CRITICAL: step4.NextStepIfNo = {NextStepId} (Won't Fix - step4No)", step4.NextStepIfNo);
+            _logger.LogInformation("CRITICAL: step4No.TaskStepId = {Step4NoId}", step4No.TaskStepId);
+            _logger.LogInformation("CRITICAL: step2No.TaskStepId = {Step2NoId} (should NOT match above)", step2No.TaskStepId);
+            
             step4.NextStepIfYes = step4Yes.TaskStepId;    // Severity Yes → Keep as New
+            _logger.LogInformation("step4.NextStepIfYes = {NextStepId} (Keep as New)", step4.NextStepIfYes);
+            
+            _logger.LogInformation("=== NAVIGATION SETUP COMPLETE ===");
             
             // Add all steps
             steps.Add(step1); // Version check
@@ -372,7 +401,25 @@ public class TaskGenerationService
             steps.Add(step4Yes); // Keep as New
         }
         
-        return steps.OrderBy(s => s.Order).ToList();
+        var finalSteps = steps.OrderBy(s => s.Order).ToList();
+        
+        _logger.LogInformation("=== FINAL STEPS VERIFICATION ===");
+        var severityStepFinal = finalSteps.FirstOrDefault(s => s.Action == "Check Severity");
+        var functionNotUtilizedStepFinal = finalSteps.FirstOrDefault(s => s.Action == "Close as Function Not Utilized");
+        var wontFixStepFinal = finalSteps.FirstOrDefault(s => s.Action == "Close as Won't Fix");
+        
+        if (severityStepFinal != null)
+        {
+            _logger.LogInformation("FINAL CHECK - Severity Step NextStepIfNo: {NextStepIfNo}", severityStepFinal.NextStepIfNo);
+            _logger.LogInformation("FINAL CHECK - Function Not Utilized ID: {FunctionNotUtilizedId}", functionNotUtilizedStepFinal?.TaskStepId);
+            _logger.LogInformation("FINAL CHECK - Won't Fix ID: {WontFixId}", wontFixStepFinal?.TaskStepId);
+            _logger.LogInformation("FINAL CHECK - Does Severity.NextStepIfNo == WontFix? {Match}", severityStepFinal.NextStepIfNo == wontFixStepFinal?.TaskStepId);
+            _logger.LogInformation("FINAL CHECK - Does Severity.NextStepIfNo == FunctionNotUtilized? {BadMatch}", severityStepFinal.NextStepIfNo == functionNotUtilizedStepFinal?.TaskStepId);
+        }
+        
+        _logger.LogInformation("=== TASK GENERATION DEBUG END ===");
+        
+        return finalSteps;
     }
     
     private void CheckAndAutoCompleteTask(CustomTask task)
