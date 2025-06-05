@@ -614,8 +614,7 @@ namespace BugTracker.Controllers
             // If it's a completed non-decision step, find the next step in the sequence
             // This handles linear sequences within the decision tree
             var nextInSequence = allSteps
-                .Where(s => s.Order > currentStep.Order && s.Status != Status.Done)
-                .OrderBy(s => s.Order)
+                .Where(s => s.Order == currentStep.Order + 1)
                 .FirstOrDefault();
                 
             return nextInSequence?.TaskStepId;
@@ -719,8 +718,7 @@ namespace BugTracker.Controllers
                 else if (currentStep.Status == Status.Done)
                 {
                     var nextStep = allSteps
-                        .Where(s => s.Order > currentStep.Order)
-                        .OrderBy(s => s.Order)
+                        .Where(s => s.Order == currentStep.Order + 1)
                         .FirstOrDefault();
                     currentStep = nextStep;
                 }
