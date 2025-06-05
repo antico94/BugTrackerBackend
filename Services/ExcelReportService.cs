@@ -2,7 +2,6 @@
 using BugTracker.Models;
 using BugTracker.Models.Enums;
 using ClosedXML.Excel;
-using System.Text;
 
 namespace BugTracker.Services;
 

@@ -1,7 +1,5 @@
 ﻿// Models/Client.cs
 
-using System.ComponentModel.DataAnnotations;
-
 namespace BugTracker.Models;
 
 public class Client

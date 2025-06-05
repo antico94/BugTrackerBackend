@@ -8,6 +8,7 @@ using BugTracker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -16,9 +17,6 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
-
-// Add services to the container.
-builder.Services.AddControllers();
 builder.Services.AddLogging();
 
 // Add Entity Framework
