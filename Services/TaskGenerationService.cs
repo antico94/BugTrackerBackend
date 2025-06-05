@@ -206,14 +206,14 @@ public class TaskGenerationService
             // Yes path - continue with more steps
             step1.Notes = $"This product version {productVersion} is affected by the bug";
             
-            // Step 2: Do preconditions apply? (MANUAL)
+            // Step 3: Do preconditions apply? (MANUAL)
             var step2 = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Check Preconditions",
                 Description = "Do the preconditions apply?",
-                Order = 2,
+                Order = 3,
                 IsDecision = true,
                 IsAutoCheck = false,
                 IsTerminal = false,
@@ -223,14 +223,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 2 - No path: Close as Function Not Utilized
+            // Step 3 - No path: Close as Function Not Utilized
             var step2No = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Close as Function Not Utilized",
                 Description = "Close the bug as Function Not Utilized",
-                Order = 3,
+                Order = 4,
                 IsDecision = false,
                 IsAutoCheck = false,
                 IsTerminal = true,
@@ -240,14 +240,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 3: Does it reproduce? (MANUAL)
+            // Step 4: Does it reproduce? (MANUAL)
             var step3 = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Test Reproduction",
                 Description = "Does it reproduce?",
-                Order = 3,
+                Order = 4,
                 IsDecision = true,
                 IsAutoCheck = false,
                 IsTerminal = false,
@@ -257,14 +257,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 3 - No path: Close as Invalid
+            // Step 4 - No path: Close as Invalid
             var step3No = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Close as Invalid",
                 Description = "Close the bug as Invalid",
-                Order = 4,
+                Order = 5,
                 IsDecision = false,
                 IsAutoCheck = false,
                 IsTerminal = true,
@@ -274,14 +274,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 4: Is severity Major/Critical? (AUTO)
+            // Step 5: Is severity Major/Critical? (AUTO)
             var step4 = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Check Severity",
                 Description = "Is the severity Major or Critical?",
-                Order = 4,
+                Order = 5,
                 IsDecision = true,
                 IsAutoCheck = true,
                 IsTerminal = false,
@@ -299,14 +299,14 @@ public class TaskGenerationService
             step4.AutoCheckResult = isMajorOrCritical;
             step4.Notes = $"Bug severity is {bugSeverity}";
             
-            // Step 4 - No path: Close as Won't Fix + ImpactConfirmed
+            // Step 5 - No path: Close as Won't Fix + ImpactConfirmed
             var step4No = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Close as Won't Fix",
                 Description = "Close the bug as Won't Fix and apply ImpactConfirmed label",
-                Order = 5,
+                Order = 6,
                 IsDecision = false,
                 IsAutoCheck = false,
                 IsTerminal = true,
@@ -316,14 +316,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 4 - Yes path: Leave as New + ImpactConfirmed
+            // Step 5 - Yes path: Leave as New + ImpactConfirmed
             var step4Yes = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Keep as New",
                 Description = "Leave the bug as New and apply ImpactConfirmed label",
-                Order = 5,
+                Order = 6,
                 IsDecision = false,
                 IsAutoCheck = false,
                 IsTerminal = true,
@@ -333,14 +333,14 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Step 0: Clone bug (inserted before decision tree)
-            var step0 = new TaskStep
+            // Step 2: Clone bug (manual step after version check)
+            var step2Clone = new TaskStep
             {
                 TaskStepId = Guid.NewGuid(),
                 TaskId = taskId,
                 Action = "Clone Bug in JIRA",
                 Description = "Clone the bug in JIRA Epic of the Product",
-                Order = 0,
+                Order = 2,
                 IsDecision = false,
                 IsAutoCheck = false,
                 IsTerminal = false,
@@ -350,18 +350,19 @@ public class TaskGenerationService
                 Notes = ""
             };
             
-            // Set up navigation
-            step1.NextStepIfYes = step2.TaskStepId;
-            step2.NextStepIfNo = step2No.TaskStepId;
-            step2.NextStepIfYes = step3.TaskStepId;
-            step3.NextStepIfNo = step3No.TaskStepId;
-            step3.NextStepIfYes = step4.TaskStepId;
-            step4.NextStepIfNo = step4No.TaskStepId;
-            step4.NextStepIfYes = step4Yes.TaskStepId;
+            // Set up navigation - correct workflow order
+            step1.NextStepIfYes = step2Clone.TaskStepId;  // Version Check → Clone Bug
+            // No navigation from Clone Bug - it's a sequential step, goes to next in order (Preconditions)
+            step2.NextStepIfNo = step2No.TaskStepId;      // Preconditions No → Function Not Utilized
+            step2.NextStepIfYes = step3.TaskStepId;       // Preconditions Yes → Reproduction
+            step3.NextStepIfNo = step3No.TaskStepId;      // Reproduction No → Invalid
+            step3.NextStepIfYes = step4.TaskStepId;       // Reproduction Yes → Severity
+            step4.NextStepIfNo = step4No.TaskStepId;      // Severity No → Won't Fix
+            step4.NextStepIfYes = step4Yes.TaskStepId;    // Severity Yes → Keep as New
             
             // Add all steps
-            steps.Add(step0); // Clone bug step
             steps.Add(step1); // Version check
+            steps.Add(step2Clone); // Clone bug step
             steps.Add(step2); // Preconditions
             steps.Add(step2No); // Function Not Utilized
             steps.Add(step3); // Reproduction
