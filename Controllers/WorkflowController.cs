@@ -5,6 +5,51 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BugTracker.Controllers;
 
+// Response DTOs for WorkflowController
+public class WorkflowStepState
+{
+    public string StepId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public WorkflowStepType Type { get; set; }
+    public bool IsTerminal { get; set; }
+    public int Order { get; set; }
+    public WorkflowStepConfig Config { get; set; } = new();
+}
+
+public class WorkflowStepConfig
+{
+    public bool RequiresNote { get; set; }
+    public bool AutoExecute { get; set; }
+    public List<ValidationRule> ValidationRules { get; set; } = new();
+}
+
+public class ValidationRule
+{
+    public string RuleId { get; set; } = string.Empty;
+    public string Field { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public object? Value { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+}
+
+public class WorkflowActionState
+{
+    public string ActionId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public WorkflowActionType Type { get; set; }
+    public bool IsEnabled { get; set; }
+    public string Description { get; set; } = string.Empty;
+}
+
+public enum WorkflowActionType
+{
+    Complete,
+    Decide,
+    Skip
+}
+
 [ApiController]
 [Route("api/[controller]")]
 public class WorkflowController : ControllerBase
