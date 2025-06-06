@@ -198,3 +198,32 @@ public class WorkflowConditionEvaluationResult
     
     public string? ErrorMessage { get; set; }
 }
+
+/// <summary>
+/// Response model for workflow statistics
+/// </summary>
+public class WorkflowStatistics
+{
+    public int TotalWorkflows { get; set; }
+    public int ActiveWorkflows { get; set; }
+    public int CompletedWorkflows { get; set; }
+    public int FailedWorkflows { get; set; }
+    public double AverageCompletionTime { get; set; }
+    public List<WorkflowDefinitionSummary> DefinitionSummaries { get; set; } = new();
+    public Dictionary<string, int> StatusCounts { get; set; } = new();
+    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Summary of workflow definition for management views
+/// </summary>
+public class WorkflowDefinitionSummary
+{
+    public Guid WorkflowDefinitionId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+}

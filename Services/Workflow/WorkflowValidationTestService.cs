@@ -36,7 +36,7 @@ public class WorkflowValidationTestService
         try
         {
             // Load the bug assessment workflow
-            var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync("Bug Assessment Workflow");
+            var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync("Bug Assessment Workflow");
             if (workflowDefinition == null)
             {
                 result.Success = false;
@@ -270,7 +270,7 @@ public class WorkflowValidationTestService
             ["severityIsMajorOrCritical"] = false
         };
 
-        var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync("Bug Assessment Workflow");
+        var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync("Bug Assessment Workflow");
         var schema = workflowDefinition!.GetWorkflowSchema();
         var pathResult = await TestWorkflowPath(schema, testContext);
 
@@ -306,7 +306,7 @@ public class WorkflowValidationTestService
             ["severityIsMajorOrCritical"] = true
         };
 
-        var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync("Bug Assessment Workflow");
+        var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync("Bug Assessment Workflow");
         var schema = workflowDefinition!.GetWorkflowSchema();
         var pathResult = await TestWorkflowPath(schema, testContext);
 

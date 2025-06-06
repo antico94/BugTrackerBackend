@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BugTracker.Controllers;
 
-// Response DTOs for WorkflowController
+// Response DTOs for WorkflowController - these map workflow models to API responses
 public class WorkflowStepState
 {
     public string StepId { get; set; } = string.Empty;
@@ -14,23 +14,14 @@ public class WorkflowStepState
     public WorkflowStepType Type { get; set; }
     public bool IsTerminal { get; set; }
     public int Order { get; set; }
-    public WorkflowStepConfig Config { get; set; } = new();
+    public WorkflowStepStateConfig Config { get; set; } = new();
 }
 
-public class WorkflowStepConfig
+public class WorkflowStepStateConfig
 {
     public bool RequiresNote { get; set; }
     public bool AutoExecute { get; set; }
-    public List<ValidationRule> ValidationRules { get; set; } = new();
-}
-
-public class ValidationRule
-{
-    public string RuleId { get; set; } = string.Empty;
-    public string Field { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public object? Value { get; set; }
-    public string ErrorMessage { get; set; } = string.Empty;
+    public List<WorkflowValidationRule> ValidationRules { get; set; } = new();
 }
 
 public class WorkflowActionState
@@ -41,13 +32,6 @@ public class WorkflowActionState
     public WorkflowActionType Type { get; set; }
     public bool IsEnabled { get; set; }
     public string Description { get; set; } = string.Empty;
-}
-
-public enum WorkflowActionType
-{
-    Complete,
-    Decide,
-    Skip
 }
 
 [ApiController]
@@ -220,7 +204,7 @@ public class WorkflowController : ControllerBase
                     AuditId = entry.WorkflowAuditId,
                     StepId = entry.StepId,
                     StepName = entry.StepName,
-                    ActionTaken = entry.ActionTaken,
+                    ActionTaken = entry.Action,
                     PerformedBy = entry.PerformedBy,
                     PerformedAt = entry.PerformedAt,
                     Notes = entry.Notes,
@@ -233,9 +217,9 @@ public class WorkflowController : ControllerBase
                 TotalSteps = auditTrail.Count,
                 Summary = new WorkflowAuditSummary
                 {
-                    DecisionPoints = auditTrail.Count(a => a.ActionTaken.StartsWith("decide_")),
-                    AutomatedSteps = auditTrail.Count(a => a.ActionTaken == "auto_evaluate"),
-                    ManualSteps = auditTrail.Count(a => a.ActionTaken == "complete"),
+                    DecisionPoints = auditTrail.Count(a => a.Action.StartsWith("decide_")),
+                    AutomatedSteps = auditTrail.Count(a => a.Action == "auto_evaluate"),
+                    ManualSteps = auditTrail.Count(a => a.Action == "complete"),
                     TotalDuration = execution.CompletedAt.HasValue 
                         ? execution.CompletedAt.Value - execution.StartedAt
                         : DateTime.UtcNow - execution.StartedAt
@@ -393,6 +377,7 @@ public class WorkflowExecutionMetadata
     public double ProgressPercentage { get; set; }
 }
 
+
 /// <summary>
 /// Individual audit trail entry
 /// </summary>
@@ -421,30 +406,4 @@ public class WorkflowAuditSummary
     public TimeSpan TotalDuration { get; set; }
 }
 
-/// <summary>
-/// Summary of workflow definition for management views
-/// </summary>
-public class WorkflowDefinitionSummary
-{
-    public Guid WorkflowDefinitionId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string Version { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public string CreatedBy { get; set; } = string.Empty;
-}
 
-/// <summary>
-/// Workflow execution statistics for monitoring
-/// </summary>
-public class WorkflowStatistics
-{
-    public int TotalExecutions { get; set; }
-    public int ActiveExecutions { get; set; }
-    public int CompletedExecutions { get; set; }
-    public int FailedExecutions { get; set; }
-    public double AverageCompletionTimeMinutes { get; set; }
-    public Dictionary<string, int> StepCompletionCounts { get; set; } = new();
-    public Dictionary<string, int> WorkflowUsageCounts { get; set; } = new();
-}

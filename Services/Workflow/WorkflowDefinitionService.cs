@@ -18,15 +18,15 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
         _logger = logger;
     }
 
-    public async Task<WorkflowDefinition?> GetWorkflowDefinitionAsync(string name)
+    public async Task<WorkflowDefinition?> LoadWorkflowDefinitionAsync(string workflowName)
     {
         return await _context.WorkflowDefinitions
-            .Where(wd => wd.Name == name && wd.IsActive)
+            .Where(wd => wd.Name == workflowName && wd.IsActive)
             .OrderByDescending(wd => wd.CreatedAt)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<List<WorkflowDefinition>> GetActiveWorkflowDefinitionsAsync()
+    public async Task<IEnumerable<WorkflowDefinition>> GetAllWorkflowDefinitionsAsync()
     {
         return await _context.WorkflowDefinitions
             .Where(wd => wd.IsActive)
@@ -35,58 +35,73 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
             .ToListAsync();
     }
 
-    public async Task<WorkflowDefinition> SaveWorkflowDefinitionAsync(WorkflowDefinition definition)
+    public async Task<WorkflowDefinition> CreateWorkflowDefinitionAsync(WorkflowDefinition definition)
+    {
+        definition.WorkflowDefinitionId = Guid.NewGuid();
+        definition.CreatedAt = DateTime.UtcNow;
+        definition.UpdatedAt = DateTime.UtcNow;
+        
+        _context.WorkflowDefinitions.Add(definition);
+        await _context.SaveChangesAsync();
+        
+        return definition;
+    }
+
+    public async Task<WorkflowDefinition> UpdateWorkflowDefinitionAsync(WorkflowDefinition definition)
+    {
+        var existingDefinition = await _context.WorkflowDefinitions
+            .FirstOrDefaultAsync(wd => wd.WorkflowDefinitionId == definition.WorkflowDefinitionId);
+
+        if (existingDefinition == null)
+        {
+            throw new ArgumentException($"Workflow definition with ID {definition.WorkflowDefinitionId} not found");
+        }
+
+        existingDefinition.Description = definition.Description;
+        existingDefinition.Version = definition.Version;
+        existingDefinition.DefinitionJson = definition.DefinitionJson;
+        existingDefinition.IsActive = definition.IsActive;
+        existingDefinition.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return existingDefinition;
+    }
+
+    public async Task<bool> DeleteWorkflowDefinitionAsync(Guid definitionId)
+    {
+        var definition = await _context.WorkflowDefinitions
+            .FirstOrDefaultAsync(wd => wd.WorkflowDefinitionId == definitionId);
+
+        if (definition == null)
+        {
+            return false;
+        }
+
+        _context.WorkflowDefinitions.Remove(definition);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ValidateWorkflowDefinitionAsync(WorkflowDefinition definition)
     {
         try
         {
-            // Validate the workflow definition
             var schema = definition.GetWorkflowSchema();
-            var validationResult = await ValidateWorkflowDefinitionAsync(schema);
-            
-            if (!validationResult.IsValid)
-            {
-                var errors = string.Join("; ", validationResult.Errors.Select(e => e.Message));
-                throw new ArgumentException($"Invalid workflow definition: {errors}");
-            }
-
-            // Check if this is a new definition or an update
-            var existingDefinition = await _context.WorkflowDefinitions
-                .FirstOrDefaultAsync(wd => wd.WorkflowDefinitionId == definition.WorkflowDefinitionId);
-
-            if (existingDefinition == null)
-            {
-                // New definition
-                definition.WorkflowDefinitionId = Guid.NewGuid();
-                definition.CreatedAt = DateTime.UtcNow;
-                definition.UpdatedAt = DateTime.UtcNow;
-                
-                _context.WorkflowDefinitions.Add(definition);
-                _logger.LogInformation("Creating new workflow definition: {Name} v{Version}", definition.Name, definition.Version);
-            }
-            else
-            {
-                // Update existing definition
-                existingDefinition.Description = definition.Description;
-                existingDefinition.Version = definition.Version;
-                existingDefinition.DefinitionJson = definition.DefinitionJson;
-                existingDefinition.IsActive = definition.IsActive;
-                existingDefinition.UpdatedAt = DateTime.UtcNow;
-                
-                _logger.LogInformation("Updating workflow definition: {Name} v{Version}", definition.Name, definition.Version);
-            }
-
-            await _context.SaveChangesAsync();
-            
-            return existingDefinition ?? definition;
+            var validationResult = await ValidateWorkflowSchemaAsync(schema);
+            return validationResult.IsValid;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogError(ex, "Error saving workflow definition: {Name}", definition.Name);
-            throw;
+            return false;
         }
     }
 
-    public async Task<WorkflowValidationResult> ValidateWorkflowDefinitionAsync(WorkflowSchema schema)
+    private async Task<WorkflowValidationResult> ValidateWorkflowSchemaAsync(WorkflowSchema schema)
+    {
+        return await Task.FromResult(ValidateWorkflowSchema(schema));
+    }
+
+    private WorkflowValidationResult ValidateWorkflowSchema(WorkflowSchema schema)
     {
         var result = new WorkflowValidationResult();
 
@@ -123,7 +138,7 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
                 });
             }
 
-            if (!schema.Steps.Any())
+            if (schema.Steps == null || !schema.Steps.Any())
             {
                 result.Errors.Add(new WorkflowValidationError
                 {
@@ -131,6 +146,8 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
                     ErrorCode = "REQUIRED",
                     Message = "At least one step is required"
                 });
+                result.IsValid = false;
+                return result;
             }
 
             // Validate steps
@@ -150,7 +167,17 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
                     });
                 }
 
-                // Validate step structure
+                // Validate step properties
+                if (string.IsNullOrWhiteSpace(step.StepId))
+                {
+                    result.Errors.Add(new WorkflowValidationError
+                    {
+                        Field = "Steps.StepId",
+                        ErrorCode = "REQUIRED",
+                        Message = "Step ID is required"
+                    });
+                }
+
                 if (string.IsNullOrWhiteSpace(step.Name))
                 {
                     result.Errors.Add(new WorkflowValidationError
@@ -161,21 +188,9 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
                     });
                 }
 
-                // Count terminal steps
                 if (step.IsTerminal)
                 {
                     terminalStepCount++;
-                }
-
-                // Validate step actions
-                if (!step.Actions.Any() && !step.Config.AutoExecute)
-                {
-                    result.Warnings.Add(new WorkflowValidationWarning
-                    {
-                        Field = $"Steps[{step.StepId}].Actions",
-                        WarningCode = "NO_ACTIONS",
-                        Message = $"Step {step.StepId} has no actions and is not auto-execute"
-                    });
                 }
 
                 // Validate action IDs are unique within step
@@ -261,41 +276,6 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
                         Field = $"Transitions[{transition.TransitionId}].TriggerAction",
                         ErrorCode = "REQUIRED",
                         Message = $"Trigger action is required for transition {transition.TransitionId}"
-                    });
-                }
-            }
-
-            // Check for unreachable steps (steps that have no transitions leading to them except initial step)
-            var reachableSteps = new HashSet<string> { schema.InitialStepId };
-            foreach (var transition in schema.Transitions)
-            {
-                reachableSteps.Add(transition.ToStepId);
-            }
-
-            foreach (var step in schema.Steps)
-            {
-                if (!reachableSteps.Contains(step.StepId))
-                {
-                    result.Warnings.Add(new WorkflowValidationWarning
-                    {
-                        Field = $"Steps[{step.StepId}]",
-                        WarningCode = "UNREACHABLE_STEP",
-                        Message = $"Step {step.StepId} may be unreachable"
-                    });
-                }
-            }
-
-            // Check for dead-end steps (non-terminal steps with no outgoing transitions)
-            var stepsWithOutgoingTransitions = schema.Transitions.Select(t => t.FromStepId).ToHashSet();
-            foreach (var step in schema.Steps.Where(s => !s.IsTerminal))
-            {
-                if (!stepsWithOutgoingTransitions.Contains(step.StepId))
-                {
-                    result.Warnings.Add(new WorkflowValidationWarning
-                    {
-                        Field = $"Steps[{step.StepId}]",
-                        WarningCode = "DEAD_END_STEP",
-                        Message = $"Non-terminal step {step.StepId} has no outgoing transitions"
                     });
                 }
             }

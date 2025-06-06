@@ -1,4 +1,5 @@
 using BugTracker.Models.Workflow;
+using BugTracker.Controllers;
 
 namespace BugTracker.Services.Workflow;
 
@@ -60,5 +61,5 @@ public interface IWorkflowExecutionService
     /// <summary>
     /// Gets workflow execution statistics
     /// </summary>
-    Task<object> GetWorkflowStatisticsAsync();
+    Task<WorkflowStatistics> GetWorkflowStatisticsAsync();
 }

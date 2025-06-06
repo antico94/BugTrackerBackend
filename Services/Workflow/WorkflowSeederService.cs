@@ -119,7 +119,7 @@ public class WorkflowSeederService
             }
 
             // Check if definition already exists
-            var existingDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync(workflowSchema.Name);
+            var existingDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync(workflowSchema.Name);
             
             var definition = new WorkflowDefinition
             {
@@ -149,7 +149,7 @@ public class WorkflowSeederService
     /// </summary>
     public async Task<WorkflowDefinition> GetBugAssessmentWorkflowAsync()
     {
-        var definition = await _workflowDefinitionService.GetWorkflowDefinitionAsync("Bug Assessment Workflow");
+        var definition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync("Bug Assessment Workflow");
         if (definition == null)
         {
             throw new InvalidOperationException("Bug Assessment Workflow not found. Please ensure workflow definitions have been seeded.");
@@ -240,7 +240,7 @@ public class WorkflowSeederService
 
             if (workflowSchema?.Name != null)
             {
-                return await _workflowDefinitionService.GetWorkflowDefinitionAsync(workflowSchema.Name);
+                return await _workflowDefinitionService.LoadWorkflowDefinitionAsync(workflowSchema.Name);
             }
 
             return null;

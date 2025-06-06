@@ -38,7 +38,7 @@ public class WorkflowEngineService : IWorkflowEngine
             throw new InvalidOperationException($"No workflow execution found for task {taskId}");
         }
 
-        var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
+        var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
         if (workflowDefinition == null)
         {
             throw new InvalidOperationException($"Workflow definition not found: {execution.WorkflowDefinition.Name}");
@@ -138,7 +138,7 @@ public class WorkflowEngineService : IWorkflowEngine
                 };
             }
 
-            var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
+            var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
             var schema = workflowDefinition!.GetWorkflowSchema();
             var currentStepDef = schema.Steps.First(s => s.StepId == execution.CurrentStepId);
             
@@ -231,7 +231,7 @@ public class WorkflowEngineService : IWorkflowEngine
 
     public async Task<WorkflowExecution> StartWorkflowAsync(Guid taskId, string workflowDefinitionName, Dictionary<string, object>? initialContext = null)
     {
-        var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync(workflowDefinitionName);
+        var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync(workflowDefinitionName);
         if (workflowDefinition == null)
         {
             throw new ArgumentException($"Workflow definition not found: {workflowDefinitionName}");
@@ -287,7 +287,7 @@ public class WorkflowEngineService : IWorkflowEngine
                 return result;
             }
 
-            var workflowDefinition = await _workflowDefinitionService.GetWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
+            var workflowDefinition = await _workflowDefinitionService.LoadWorkflowDefinitionAsync(execution.WorkflowDefinition.Name);
             var schema = workflowDefinition!.GetWorkflowSchema();
             var currentStepDef = schema.Steps.FirstOrDefault(s => s.StepId == execution.CurrentStepId);
 

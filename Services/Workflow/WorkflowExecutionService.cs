@@ -369,38 +369,59 @@ public class WorkflowExecutionService : IWorkflowExecutionService
         }
     }
 
-    public async Task<object> GetWorkflowStatisticsAsync()
+    public async Task<WorkflowStatistics> GetWorkflowStatisticsAsync()
     {
         try
         {
-            var stats = new
+            var totalExecutions = await _context.WorkflowExecutions.CountAsync();
+            var activeExecutions = await _context.WorkflowExecutions
+                .CountAsync(we => we.Status == WorkflowExecutionStatus.Active);
+            var completedExecutions = await _context.WorkflowExecutions
+                .CountAsync(we => we.Status == WorkflowExecutionStatus.Completed);
+            var failedExecutions = await _context.WorkflowExecutions
+                .CountAsync(we => we.Status == WorkflowExecutionStatus.Failed);
+            
+            var averageCompletionTime = await _context.WorkflowExecutions
+                .Where(we => we.Status == WorkflowExecutionStatus.Completed && we.CompletedAt.HasValue)
+                .Select(we => EF.Functions.DateDiffMinute(we.StartedAt, we.CompletedAt!.Value))
+                .DefaultIfEmpty(0)
+                .AverageAsync();
+
+            var definitions = await _context.WorkflowDefinitions.ToListAsync();
+            var definitionSummaries = definitions.Select(def => new WorkflowDefinitionSummary
             {
-                TotalExecutions = await _context.WorkflowExecutions.CountAsync(),
-                ActiveExecutions = await _context.WorkflowExecutions
-                    .CountAsync(we => we.Status == WorkflowExecutionStatus.Active),
-                CompletedExecutions = await _context.WorkflowExecutions
-                    .CountAsync(we => we.Status == WorkflowExecutionStatus.Completed),
-                FailedExecutions = await _context.WorkflowExecutions
-                    .CountAsync(we => we.Status == WorkflowExecutionStatus.Failed),
-                AverageCompletionTimeMinutes = await _context.WorkflowExecutions
-                    .Where(we => we.Status == WorkflowExecutionStatus.Completed && we.CompletedAt.HasValue)
-                    .Select(we => EF.Functions.DateDiffMinute(we.StartedAt, we.CompletedAt!.Value))
-                    .DefaultIfEmpty(0)
-                    .AverageAsync(),
-                StepCompletionCounts = await _context.WorkflowAuditLogs
-                    .Where(al => al.Action == "complete" || al.Action == "decide_yes" || al.Action == "decide_no")
-                    .GroupBy(al => al.StepName)
-                    .Select(g => new { StepName = g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.StepName, x => x.Count),
-                WorkflowUsageCounts = await _context.WorkflowExecutions
-                    .Include(we => we.WorkflowDefinition)
-                    .GroupBy(we => we.WorkflowDefinition!.Name)
-                    .Select(g => new { WorkflowName = g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.WorkflowName, x => x.Count)
+                WorkflowDefinitionId = def.WorkflowDefinitionId,
+                Name = def.Name,
+                Description = def.Description,
+                Version = def.Version,
+                IsActive = def.IsActive,
+                CreatedAt = def.CreatedAt,
+                CreatedBy = def.CreatedBy
+            }).ToList();
+
+            var statusCounts = new Dictionary<string, int>
+            {
+                ["Active"] = activeExecutions,
+                ["Completed"] = completedExecutions,
+                ["Failed"] = failedExecutions,
+                ["Suspended"] = await _context.WorkflowExecutions.CountAsync(we => we.Status == WorkflowExecutionStatus.Suspended),
+                ["Cancelled"] = await _context.WorkflowExecutions.CountAsync(we => we.Status == WorkflowExecutionStatus.Cancelled)
+            };
+
+            var stats = new WorkflowStatistics
+            {
+                TotalWorkflows = totalExecutions,
+                ActiveWorkflows = activeExecutions,
+                CompletedWorkflows = completedExecutions,
+                FailedWorkflows = failedExecutions,
+                AverageCompletionTime = averageCompletionTime,
+                DefinitionSummaries = definitionSummaries,
+                StatusCounts = statusCounts,
+                LastUpdated = DateTime.UtcNow
             };
 
             _logger.LogDebug("Retrieved workflow statistics: {TotalExecutions} total, {ActiveExecutions} active, {CompletedExecutions} completed", 
-                stats.TotalExecutions, stats.ActiveExecutions, stats.CompletedExecutions);
+                totalExecutions, activeExecutions, completedExecutions);
 
             return stats;
         }

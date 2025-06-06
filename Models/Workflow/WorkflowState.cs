@@ -58,6 +58,31 @@ public class WorkflowState
     /// When this state was generated
     /// </summary>
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// When this state was last updated
+    /// </summary>
+    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// When the workflow execution started
+    /// </summary>
+    public DateTime StartedAt { get; set; }
+    
+    /// <summary>
+    /// Who performed the workflow actions
+    /// </summary>
+    public string PerformedBy { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Total number of steps in the workflow
+    /// </summary>
+    public int TotalSteps { get; set; }
+    
+    /// <summary>
+    /// Error message if the workflow is in error state
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }
 
 /// <summary>

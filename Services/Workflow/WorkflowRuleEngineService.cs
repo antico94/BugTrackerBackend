@@ -92,46 +92,33 @@ public class WorkflowRuleEngineService : IWorkflowRuleEngine
         }
     }
 
-    public async Task<WorkflowValidationResult> ValidateInputAsync(List<WorkflowValidationRule> rules, Dictionary<string, object> input)
+    public async Task<List<string>> ValidateRulesAsync(List<WorkflowValidationRule> rules, Dictionary<string, object> context)
     {
-        var result = new WorkflowValidationResult();
+        var errors = new List<string>();
 
         foreach (var rule in rules)
         {
             try
             {
-                var value = GetValueFromContext(rule.Field, input);
+                var value = GetValueFromContext(rule.Field, context);
                 var isValid = await ValidateRuleAsync(rule, value);
 
                 if (!isValid)
                 {
-                    result.IsValid = false;
-                    result.Errors.Add(new WorkflowValidationError
-                    {
-                        Field = rule.Field,
-                        ErrorCode = rule.Type.ToString(),
-                        Message = string.IsNullOrEmpty(rule.ErrorMessage) 
-                            ? $"Validation failed for field {rule.Field}" 
-                            : rule.ErrorMessage,
-                        Value = value
-                    });
+                    var errorMessage = string.IsNullOrEmpty(rule.ErrorMessage) 
+                        ? $"Validation failed for field {rule.Field}" 
+                        : rule.ErrorMessage;
+                    errors.Add(errorMessage);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error validating rule {RuleId} for field {Field}", rule.RuleId, rule.Field);
-                result.IsValid = false;
-                result.Errors.Add(new WorkflowValidationError
-                {
-                    Field = rule.Field,
-                    ErrorCode = "VALIDATION_ERROR",
-                    Message = "An error occurred during validation",
-                    Value = null
-                });
+                errors.Add($"Validation error for field {rule.Field}: {ex.Message}");
             }
         }
 
-        return result;
+        return errors;
     }
 
     private async Task<bool> ValidateRuleAsync(WorkflowValidationRule rule, object? value)
@@ -384,5 +371,64 @@ public class WorkflowRuleEngineService : IWorkflowRuleEngine
     {
         if (value == null) return false;
         return double.TryParse(value.ToString(), out _);
+    }
+
+    public async Task<string?> DetermineNextStepAsync(List<WorkflowTransition> transitions, string currentStepId, string actionId, Dictionary<string, object> context)
+    {
+        try
+        {
+            var validTransitions = transitions.Where(t => t.FromStepId == currentStepId && t.TriggerAction == actionId);
+
+            foreach (var transition in validTransitions)
+            {
+                if (transition.Conditions.Any())
+                {
+                    var conditionsResult = await EvaluateConditionsAsync(transition.Conditions, context);
+                    if (conditionsResult)
+                    {
+                        return transition.ToStepId;
+                    }
+                }
+                else
+                {
+                    // No conditions means this transition can be taken
+                    return transition.ToStepId;
+                }
+            }
+
+            return null; // No valid transition found
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error determining next step from {CurrentStepId} with action {ActionId}", currentStepId, actionId);
+            return null;
+        }
+    }
+
+    public async Task<object?> EvaluateExpressionAsync(string expression, Dictionary<string, object> context)
+    {
+        try
+        {
+            // Simple expression evaluation for basic field access
+            // Format: ${fieldName} or fieldName
+            if (expression.StartsWith("${") && expression.EndsWith("}"))
+            {
+                var fieldName = expression.Substring(2, expression.Length - 3);
+                return GetValueFromContext(fieldName, context);
+            }
+            
+            if (context.ContainsKey(expression))
+            {
+                return context[expression];
+            }
+
+            // If it's a literal value, return as-is
+            return expression;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error evaluating expression: {Expression}", expression);
+            return null;
+        }
     }
 }
