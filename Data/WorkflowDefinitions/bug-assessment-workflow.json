@@ -1,0 +1,487 @@
+{
+  "workflowId": "bug-assessment-v1",
+  "name": "Bug Assessment Workflow",
+  "description": "Comprehensive workflow for assessing bug impact on products and determining appropriate actions",
+  "initialStepId": "version-check",
+  "steps": [
+    {
+      "stepId": "version-check",
+      "name": "Check Version Impact",
+      "description": "Is the version of our product affected by the bug?",
+      "type": "AutoCheck",
+      "isTerminal": false,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": true,
+        "validationRules": [],
+        "customProperties": {
+          "evaluationExpression": "context.affectedVersions.contains(context.productVersion)"
+        }
+      },
+      "actions": [
+        {
+          "actionId": "auto_evaluate",
+          "name": "Auto Evaluate",
+          "label": "Automatically evaluate version impact",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "System automatically checks if product version is in affected versions list"
+        }
+      ],
+      "metadata": {
+        "category": "auto-check",
+        "description": "Automatically determines if the product version is affected by checking against the list of affected versions"
+      }
+    },
+    {
+      "stepId": "clone-bug",
+      "name": "Clone Bug in JIRA",
+      "description": "Clone the bug in JIRA Epic of the Product",
+      "type": "Manual",
+      "isTerminal": false,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "notes-required",
+            "field": "notes",
+            "type": "MinLength",
+            "value": 10,
+            "errorMessage": "Please provide details about the JIRA cloning process"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "complete",
+          "name": "Complete Cloning",
+          "label": "Mark cloning as complete",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Mark the JIRA bug cloning step as completed"
+        }
+      ],
+      "metadata": {
+        "category": "manual-action",
+        "jiraRequired": true
+      }
+    },
+    {
+      "stepId": "check-preconditions",
+      "name": "Check Preconditions",
+      "description": "Do the preconditions apply?",
+      "type": "Decision",
+      "isTerminal": false,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "decision-notes-required",
+            "field": "notes",
+            "type": "MinLength", 
+            "value": 10,
+            "errorMessage": "Please explain your precondition assessment"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "decide_yes",
+          "name": "Yes",
+          "label": "Yes - Preconditions apply",
+          "type": "Decide",
+          "isEnabled": true,
+          "description": "The preconditions for this bug apply to our product"
+        },
+        {
+          "actionId": "decide_no",
+          "name": "No", 
+          "label": "No - Preconditions don't apply",
+          "type": "Decide",
+          "isEnabled": true,
+          "description": "The preconditions for this bug do not apply to our product"
+        }
+      ],
+      "metadata": {
+        "category": "decision-point",
+        "requiresAnalysis": true
+      }
+    },
+    {
+      "stepId": "test-reproduction",
+      "name": "Test Reproduction",
+      "description": "Does it reproduce?",
+      "type": "Decision",
+      "isTerminal": false,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "reproduction-notes-required",
+            "field": "notes",
+            "type": "MinLength",
+            "value": 15,
+            "errorMessage": "Please provide detailed reproduction test results"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "decide_yes",
+          "name": "Yes",
+          "label": "Yes - Bug reproduces",
+          "type": "Decide",
+          "isEnabled": true,
+          "description": "The bug can be reproduced in our environment"
+        },
+        {
+          "actionId": "decide_no",
+          "name": "No",
+          "label": "No - Cannot reproduce", 
+          "type": "Decide",
+          "isEnabled": true,
+          "description": "The bug cannot be reproduced in our environment"
+        }
+      ],
+      "metadata": {
+        "category": "decision-point",
+        "requiresTesting": true
+      }
+    },
+    {
+      "stepId": "check-severity",
+      "name": "Check Severity",
+      "description": "Is the severity Major or Critical?",
+      "type": "AutoCheck",
+      "isTerminal": false,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": true,
+        "validationRules": [],
+        "customProperties": {
+          "evaluationExpression": "context.bugSeverity == 'Major' || context.bugSeverity == 'Critical'"
+        }
+      },
+      "actions": [
+        {
+          "actionId": "auto_evaluate",
+          "name": "Auto Evaluate Severity",
+          "label": "Automatically evaluate severity level",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "System automatically checks if bug severity is Major or Critical"
+        }
+      ],
+      "metadata": {
+        "category": "auto-check",
+        "severityThreshold": ["Major", "Critical"]
+      }
+    },
+    {
+      "stepId": "not-affected-terminal",
+      "name": "Don't Clone Bug",
+      "description": "Don't clone the bug as this version is not affected",
+      "type": "Terminal",
+      "isTerminal": true,
+      "config": {
+        "requiresNote": false,
+        "autoExecute": true,
+        "validationRules": []
+      },
+      "actions": [
+        {
+          "actionId": "auto_complete",
+          "name": "Auto Complete",
+          "label": "Automatically complete task",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Task automatically completed - version not affected"
+        }
+      ],
+      "metadata": {
+        "category": "terminal",
+        "resolution": "not-affected",
+        "autoGenerated": true
+      }
+    },
+    {
+      "stepId": "function-not-utilized",
+      "name": "Close as Function Not Utilized",
+      "description": "Close the bug as Function Not Utilized",
+      "type": "Terminal",
+      "isTerminal": true,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "closure-notes-required",
+            "field": "notes",
+            "type": "MinLength",
+            "value": 20,
+            "errorMessage": "Please provide detailed explanation for Function Not Utilized closure"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "complete",
+          "name": "Close Bug",
+          "label": "Close as Function Not Utilized",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Close the bug with Function Not Utilized resolution"
+        }
+      ],
+      "metadata": {
+        "category": "terminal",
+        "resolution": "function-not-utilized",
+        "jiraAction": "close"
+      }
+    },
+    {
+      "stepId": "close-invalid",
+      "name": "Close as Invalid",
+      "description": "Close the bug as Invalid",
+      "type": "Terminal",
+      "isTerminal": true,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "invalid-closure-notes-required",
+            "field": "notes", 
+            "type": "MinLength",
+            "value": 20,
+            "errorMessage": "Please provide detailed explanation for Invalid closure"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "complete",
+          "name": "Close Bug",
+          "label": "Close as Invalid",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Close the bug with Invalid resolution"
+        }
+      ],
+      "metadata": {
+        "category": "terminal",
+        "resolution": "invalid",
+        "jiraAction": "close"
+      }
+    },
+    {
+      "stepId": "close-wont-fix",
+      "name": "Close as Won't Fix",
+      "description": "Close the bug as Won't Fix and apply ImpactConfirmed label",
+      "type": "Terminal", 
+      "isTerminal": true,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "wont-fix-notes-required",
+            "field": "notes",
+            "type": "MinLength",
+            "value": 20,
+            "errorMessage": "Please provide detailed explanation for Won't Fix closure"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "complete",
+          "name": "Close Bug",
+          "label": "Close as Won't Fix",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Close the bug with Won't Fix resolution and apply ImpactConfirmed label"
+        }
+      ],
+      "metadata": {
+        "category": "terminal",
+        "resolution": "wont-fix",
+        "jiraAction": "close",
+        "labels": ["ImpactConfirmed"]
+      }
+    },
+    {
+      "stepId": "keep-as-new",
+      "name": "Keep as New",
+      "description": "Leave the bug as New and apply ImpactConfirmed label", 
+      "type": "Terminal",
+      "isTerminal": true,
+      "config": {
+        "requiresNote": true,
+        "autoExecute": false,
+        "validationRules": [
+          {
+            "ruleId": "impact-confirmed-notes-required",
+            "field": "notes",
+            "type": "MinLength",
+            "value": 15,
+            "errorMessage": "Please provide explanation for keeping bug as New with ImpactConfirmed"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "actionId": "complete",
+          "name": "Apply Label",
+          "label": "Keep as New + ImpactConfirmed",
+          "type": "Complete",
+          "isEnabled": true,
+          "description": "Keep the bug as New status and apply ImpactConfirmed label"
+        }
+      ],
+      "metadata": {
+        "category": "terminal",
+        "resolution": "keep-new",
+        "jiraAction": "label",
+        "labels": ["ImpactConfirmed"]
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "transitionId": "version-check-to-not-affected",
+      "fromStepId": "version-check",
+      "toStepId": "not-affected-terminal",
+      "triggerAction": "auto_evaluate",
+      "conditions": [
+        {
+          "conditionId": "version-not-affected",
+          "field": "context.versionAffected",
+          "operator": "Equals",
+          "value": false,
+          "logic": "And"
+        }
+      ],
+      "metadata": {
+        "description": "Product version is not in the affected versions list"
+      }
+    },
+    {
+      "transitionId": "version-check-to-clone",
+      "fromStepId": "version-check", 
+      "toStepId": "clone-bug",
+      "triggerAction": "auto_evaluate",
+      "conditions": [
+        {
+          "conditionId": "version-affected",
+          "field": "context.versionAffected",
+          "operator": "Equals",
+          "value": true,
+          "logic": "And"
+        }
+      ],
+      "metadata": {
+        "description": "Product version is affected, proceed to clone bug"
+      }
+    },
+    {
+      "transitionId": "clone-to-preconditions",
+      "fromStepId": "clone-bug",
+      "toStepId": "check-preconditions",
+      "triggerAction": "complete",
+      "conditions": [],
+      "metadata": {
+        "description": "Sequential progression after cloning bug"
+      }
+    },
+    {
+      "transitionId": "preconditions-no-to-function-not-utilized",
+      "fromStepId": "check-preconditions",
+      "toStepId": "function-not-utilized",
+      "triggerAction": "decide_no",
+      "conditions": [],
+      "metadata": {
+        "description": "Preconditions don't apply - close as Function Not Utilized"
+      }
+    },
+    {
+      "transitionId": "preconditions-yes-to-reproduction",
+      "fromStepId": "check-preconditions",
+      "toStepId": "test-reproduction",
+      "triggerAction": "decide_yes",
+      "conditions": [],
+      "metadata": {
+        "description": "Preconditions apply - proceed to test reproduction"
+      }
+    },
+    {
+      "transitionId": "reproduction-no-to-invalid",
+      "fromStepId": "test-reproduction",
+      "toStepId": "close-invalid",
+      "triggerAction": "decide_no",
+      "conditions": [],
+      "metadata": {
+        "description": "Cannot reproduce - close as Invalid"
+      }
+    },
+    {
+      "transitionId": "reproduction-yes-to-severity",
+      "fromStepId": "test-reproduction",
+      "toStepId": "check-severity",
+      "triggerAction": "decide_yes",
+      "conditions": [],
+      "metadata": {
+        "description": "Bug reproduces - check severity level"
+      }
+    },
+    {
+      "transitionId": "severity-no-to-wont-fix",
+      "fromStepId": "check-severity",
+      "toStepId": "close-wont-fix",
+      "triggerAction": "auto_evaluate",
+      "conditions": [
+        {
+          "conditionId": "severity-not-major-critical",
+          "field": "context.severityIsMajorOrCritical",
+          "operator": "Equals",
+          "value": false,
+          "logic": "And"
+        }
+      ],
+      "metadata": {
+        "description": "Severity is not Major/Critical - close as Won't Fix with ImpactConfirmed"
+      }
+    },
+    {
+      "transitionId": "severity-yes-to-keep-new",
+      "fromStepId": "check-severity",
+      "toStepId": "keep-as-new",
+      "triggerAction": "auto_evaluate",
+      "conditions": [
+        {
+          "conditionId": "severity-is-major-critical",
+          "field": "context.severityIsMajorOrCritical",
+          "operator": "Equals",
+          "value": true,
+          "logic": "And"
+        }
+      ],
+      "metadata": {
+        "description": "Severity is Major/Critical - keep as New with ImpactConfirmed label"
+      }
+    }
+  ],
+  "metadata": {
+    "category": "bug-assessment",
+    "tags": ["bug-tracking", "impact-assessment", "jira-integration"],
+    "customProperties": {
+      "supportedProductTypes": ["TM", "InteractiveResponseTechnology"],
+      "requiresJiraIntegration": true,
+      "estimatedDuration": "15-30 minutes",
+      "complexityLevel": "medium"
+    }
+  }
+}

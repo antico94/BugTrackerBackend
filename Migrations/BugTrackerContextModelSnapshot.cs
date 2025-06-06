@@ -471,6 +471,169 @@ namespace BugTracker.Migrations
                     b.ToTable("WeeklyCoreBugs");
                 });
 
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowDefinition", b =>
+                {
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DefinitionJson")
+                        .IsRequired()
+                        .HasColumnType("ntext");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("WorkflowDefinitionId");
+
+                    b.HasIndex("Name", "Version")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowDefinitions");
+                });
+
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowExecution", b =>
+                {
+                    b.Property<Guid>("WorkflowExecutionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ContextJson")
+                        .HasColumnType("ntext");
+
+                    b.Property<string>("CurrentStepId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StartedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkflowExecutionId");
+
+                    b.HasIndex("TaskId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.ToTable("WorkflowExecutions");
+                });
+
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowAuditLog", b =>
+                {
+                    b.Property<Guid>("WorkflowAuditLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ConditionsEvaluated")
+                        .HasColumnType("ntext");
+
+                    b.Property<string>("ContextSnapshot")
+                        .HasColumnType("ntext");
+
+                    b.Property<string>("Decision")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NextStepId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("ntext");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PreviousStepId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("StepId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StepName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WorkflowExecutionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkflowAuditLogId");
+
+                    b.HasIndex("WorkflowExecutionId", "Timestamp");
+
+                    b.ToTable("WorkflowAuditLogs");
+                });
+
             modelBuilder.Entity("BugTracker.Models.CustomTask", b =>
                 {
                     b.HasOne("BugTracker.Models.CoreBug", "CoreBug")
@@ -650,6 +813,41 @@ namespace BugTracker.Migrations
             modelBuilder.Entity("BugTracker.Models.WeeklyCoreBugs", b =>
                 {
                     b.Navigation("WeeklyCoreBugEntries");
+                });
+
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowExecution", b =>
+                {
+                    b.HasOne("BugTracker.Models.CustomTask", "Task")
+                        .WithOne()
+                        .HasForeignKey("BugTracker.Models.Workflow.WorkflowExecution", "TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BugTracker.Models.Workflow.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+
+                    b.Navigation("WorkflowDefinition");
+                });
+
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowAuditLog", b =>
+                {
+                    b.HasOne("BugTracker.Models.Workflow.WorkflowExecution", "WorkflowExecution")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("WorkflowExecutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowExecution");
+                });
+
+            modelBuilder.Entity("BugTracker.Models.Workflow.WorkflowExecution", b =>
+                {
+                    b.Navigation("AuditLogs");
                 });
 #pragma warning restore 612, 618
         }

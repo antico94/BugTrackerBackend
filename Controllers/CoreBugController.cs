@@ -17,13 +17,13 @@ namespace BugTracker.Controllers
     {
         private readonly BugTrackerContext _context;
         private readonly ILogger<CoreBugController> _logger;
-        private readonly TaskGenerationService _taskGenerationService;
+        private readonly WorkflowTaskGenerationService _workflowTaskGenerationService;
 
-        public CoreBugController(BugTrackerContext context, ILogger<CoreBugController> logger, TaskGenerationService taskGenerationService)
+        public CoreBugController(BugTrackerContext context, ILogger<CoreBugController> logger, WorkflowTaskGenerationService workflowTaskGenerationService)
         {
             _context = context;
             _logger = logger;
-            _taskGenerationService = taskGenerationService;
+            _workflowTaskGenerationService = workflowTaskGenerationService;
         }
 
         // GET: api/CoreBug
@@ -350,8 +350,8 @@ namespace BugTracker.Controllers
                 coreBug.IsAssessed = true;
                 coreBug.AssessedAt = DateTime.UtcNow;
 
-                // Generate tasks for impacted products
-                var generatedTasks = await _taskGenerationService.GenerateTasksForAssessedBug(coreBug);
+                // Generate tasks for impacted products using new workflow system
+                var generatedTasks = await _workflowTaskGenerationService.GenerateTasksForAssessedBugAsync(coreBug);
 
                 // Add generated tasks to context
                 _context.CustomTasks.AddRange(generatedTasks);

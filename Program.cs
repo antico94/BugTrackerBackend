@@ -5,6 +5,8 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using BugTracker.Data;
 using BugTracker.Services;
+using BugTracker.Services.Workflow;
+using BugTracker.Models.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,9 +25,17 @@ builder.Services.AddLogging();
 builder.Services.AddDbContext<BugTrackerContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add your services
+// Add existing services
 builder.Services.AddScoped<TaskGenerationService>();
 builder.Services.AddScoped<ExcelReportService>();
+
+// Add new workflow services
+builder.Services.AddScoped<IWorkflowEngine, WorkflowEngineService>();
+builder.Services.AddScoped<IWorkflowDefinitionService, WorkflowDefinitionService>();
+builder.Services.AddScoped<IWorkflowExecutionService, WorkflowExecutionService>();
+builder.Services.AddScoped<IWorkflowRuleEngine, WorkflowRuleEngineService>();
+builder.Services.AddScoped<WorkflowSeederService>();
+builder.Services.AddScoped<WorkflowTaskGenerationService>();
 
 builder.Services.AddCors(options =>
 {
@@ -44,6 +54,22 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Seed workflow definitions on startup
+using (var scope = app.Services.CreateScope())
+{
+    var workflowSeeder = scope.ServiceProvider.GetRequiredService<WorkflowSeederService>();
+    try
+    {
+        await workflowSeeder.SeedWorkflowDefinitionsAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error seeding workflow definitions on startup");
+    }
+}
+
 app.UseCors("AllowNextJS");
 
 // Configure the HTTP request pipeline.

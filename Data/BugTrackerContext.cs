@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using BugTracker.Models;
 using BugTracker.Models.Enums;
+using BugTracker.Models.Workflow;
 
 namespace BugTracker.Data;
 
@@ -21,6 +22,11 @@ public class BugTrackerContext : DbContext
     public DbSet<TaskNote> TaskNotes { get; set; }
     public DbSet<WeeklyCoreBugs> WeeklyCoreBugs { get; set; }
     public DbSet<WeeklyCoreBugEntry> WeeklyCoreBugEntries { get; set; }
+    
+    // Workflow entities
+    public DbSet<WorkflowDefinition> WorkflowDefinitions { get; set; }
+    public DbSet<WorkflowExecution> WorkflowExecutions { get; set; }
+    public DbSet<WorkflowAuditLog> WorkflowAuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -251,6 +257,69 @@ public class BugTrackerContext : DbContext
 
         modelBuilder.Entity<ExternalModule>()
             .Property(e => e.ExternalModuleType)
+            .HasConversion<string>();
+
+        // Workflow Configuration
+        modelBuilder.Entity<WorkflowDefinition>(entity =>
+        {
+            entity.HasKey(e => e.WorkflowDefinitionId);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.Version).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.DefinitionJson).IsRequired().HasColumnType("ntext");
+            entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(100);
+            
+            entity.HasIndex(e => new { e.Name, e.Version }).IsUnique();
+        });
+
+        modelBuilder.Entity<WorkflowExecution>(entity =>
+        {
+            entity.HasKey(e => e.WorkflowExecutionId);
+            entity.Property(e => e.CurrentStepId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ContextJson).HasColumnType("ntext");
+            entity.Property(e => e.StartedBy).IsRequired().HasMaxLength(100);
+            
+            // WorkflowExecution -> CustomTask (1:1)
+            entity.HasOne(we => we.Task)
+                  .WithOne()
+                  .HasForeignKey<WorkflowExecution>(we => we.TaskId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            // WorkflowExecution -> WorkflowDefinition (Many:1)
+            entity.HasOne(we => we.WorkflowDefinition)
+                  .WithMany()
+                  .HasForeignKey(we => we.WorkflowDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            
+            // WorkflowExecution -> AuditLogs (1:Many)
+            entity.HasMany(we => we.AuditLogs)
+                  .WithOne(al => al.WorkflowExecution)
+                  .HasForeignKey(al => al.WorkflowExecutionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasIndex(e => e.TaskId).IsUnique();
+        });
+
+        modelBuilder.Entity<WorkflowAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.WorkflowAuditLogId);
+            entity.Property(e => e.StepId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Result).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PreviousStepId).HasMaxLength(100);
+            entity.Property(e => e.NextStepId).HasMaxLength(100);
+            entity.Property(e => e.Decision).HasMaxLength(50);
+            entity.Property(e => e.Notes).HasColumnType("ntext");
+            entity.Property(e => e.ConditionsEvaluated).HasColumnType("ntext");
+            entity.Property(e => e.ContextSnapshot).HasColumnType("ntext");
+            entity.Property(e => e.PerformedBy).IsRequired().HasMaxLength(100);
+            
+            entity.HasIndex(e => new { e.WorkflowExecutionId, e.Timestamp });
+        });
+
+        // Workflow enum conversions
+        modelBuilder.Entity<WorkflowExecution>()
+            .Property(e => e.Status)
             .HasConversion<string>();
     }
 }
