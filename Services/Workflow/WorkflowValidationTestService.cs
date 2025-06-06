@@ -46,12 +46,21 @@ public class WorkflowValidationTestService
 
             var schema = workflowDefinition.GetWorkflowSchema();
             
+            // Create a temporary workflow definition for validation
+            var tempDefinition = new WorkflowDefinition
+            {
+                Name = schema.Name,
+                Description = schema.Description,
+                Version = "1.0.0"
+            };
+            tempDefinition.SetWorkflowSchema(schema);
+            
             // Validate the workflow definition
-            var validationResult = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(schema);
-            if (!validationResult.IsValid)
+            var isValid = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(tempDefinition);
+            if (!isValid)
             {
                 result.Success = false;
-                result.ErrorMessage = "Workflow definition is invalid: " + string.Join("; ", validationResult.Errors.Select(e => e.Message));
+                result.ErrorMessage = "Workflow definition is invalid";
                 return result;
             }
 

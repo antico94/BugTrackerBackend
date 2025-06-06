@@ -40,6 +40,8 @@ public class WorkflowActionResult
     public WorkflowState? NewState { get; set; }
     
     public Dictionary<string, object>? Metadata { get; set; }
+    
+    public List<string> ValidationErrors { get; set; } = new();
 }
 
 /// <summary>
@@ -52,6 +54,8 @@ public class WorkflowValidationResult
     public List<WorkflowValidationError> Errors { get; set; } = new();
     
     public List<WorkflowValidationWarning> Warnings { get; set; } = new();
+    
+    public List<string> ValidationErrors { get; set; } = new();
     
     public Dictionary<string, object>? Metadata { get; set; }
 }

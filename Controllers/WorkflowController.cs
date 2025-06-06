@@ -76,9 +76,45 @@ public class WorkflowController : ControllerBase
                 TaskId = taskId,
                 WorkflowName = workflowState.WorkflowName,
                 Status = workflowState.Status,
-                CurrentStep = workflowState.CurrentStep,
-                AvailableActions = workflowState.AvailableActions,
-                CompletedSteps = workflowState.CompletedSteps,
+                CurrentStep = workflowState.CurrentStep != null ? new WorkflowStepState
+                {
+                    StepId = workflowState.CurrentStep.StepId,
+                    Name = workflowState.CurrentStep.Name,
+                    Description = workflowState.CurrentStep.Description,
+                    Type = workflowState.CurrentStep.Type,
+                    IsTerminal = workflowState.CurrentStep.IsTerminal,
+                    Order = 0, // Set default or calculate
+                    Config = new WorkflowStepStateConfig
+                    {
+                        RequiresNote = workflowState.CurrentStep.RequiresNote,
+                        AutoExecute = workflowState.CurrentStep.AutoExecute,
+                        ValidationRules = new List<WorkflowValidationRule>()
+                    }
+                } : null,
+                AvailableActions = workflowState.AvailableActions.Select(a => new WorkflowActionState
+                {
+                    ActionId = a.ActionId,
+                    Name = a.Name,
+                    Label = a.Label,
+                    Type = a.Type,
+                    IsEnabled = a.IsEnabled,
+                    Description = a.Description
+                }).ToList(),
+                CompletedSteps = workflowState.CompletedSteps.Select(s => new WorkflowStepState
+                {
+                    StepId = s.StepId,
+                    Name = s.Name,
+                    Description = s.Description,
+                    Type = s.Type,
+                    IsTerminal = false, // Completed steps are not terminal for display
+                    Order = 0, // Set default or calculate
+                    Config = new WorkflowStepStateConfig
+                    {
+                        RequiresNote = false,
+                        AutoExecute = false,
+                        ValidationRules = new List<WorkflowValidationRule>()
+                    }
+                }).ToList(),
                 Context = workflowState.Context,
                 LastUpdated = workflowState.LastUpdated,
                 ErrorMessage = workflowState.ErrorMessage,
@@ -201,17 +237,17 @@ public class WorkflowController : ControllerBase
                 CompletedAt = execution.CompletedAt,
                 AuditTrail = auditTrail.Select(entry => new WorkflowAuditEntry
                 {
-                    AuditId = entry.WorkflowAuditId,
+                    AuditId = entry.WorkflowAuditLogId,
                     StepId = entry.StepId,
                     StepName = entry.StepName,
                     ActionTaken = entry.Action,
                     PerformedBy = entry.PerformedBy,
-                    PerformedAt = entry.PerformedAt,
+                    PerformedAt = entry.Timestamp,
                     Notes = entry.Notes,
                     PreviousStepId = entry.PreviousStepId,
                     NextStepId = entry.NextStepId,
-                    ExecutionContext = entry.ExecutionContext != null 
-                        ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(entry.ExecutionContext)
+                    ExecutionContext = entry.ContextSnapshot != null 
+                        ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(entry.ContextSnapshot)
                         : new Dictionary<string, object>()
                 }).ToList(),
                 TotalSteps = auditTrail.Count,

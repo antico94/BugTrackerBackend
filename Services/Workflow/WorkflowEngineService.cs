@@ -368,12 +368,11 @@ public class WorkflowEngineService : IWorkflowEngine
                     }
                 }
 
-                var customValidationResult = await _ruleEngine.ValidateInputAsync(currentStepDef.Config.ValidationRules, input);
-                if (!customValidationResult.IsValid)
+                var validationErrors = await _ruleEngine.ValidateRulesAsync(currentStepDef.Config.ValidationRules, input);
+                if (validationErrors.Count > 0)
                 {
                     result.IsValid = false;
-                    result.Errors.AddRange(customValidationResult.Errors);
-                    result.Warnings.AddRange(customValidationResult.Warnings);
+                    result.ValidationErrors.AddRange(validationErrors);
                 }
             }
         }

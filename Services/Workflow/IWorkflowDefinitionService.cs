@@ -36,4 +36,14 @@ public interface IWorkflowDefinitionService
     /// Validates a workflow definition
     /// </summary>
     Task<bool> ValidateWorkflowDefinitionAsync(WorkflowDefinition definition);
+    
+    /// <summary>
+    /// Saves or updates a workflow definition
+    /// </summary>
+    Task<WorkflowDefinition> SaveWorkflowDefinitionAsync(WorkflowDefinition definition);
+    
+    /// <summary>
+    /// Gets all active workflow definitions
+    /// </summary>
+    Task<List<WorkflowDefinition>> GetActiveWorkflowDefinitionsAsync();
 }

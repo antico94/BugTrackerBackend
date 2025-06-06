@@ -185,7 +185,7 @@ public class WorkflowRuleEngineService : IWorkflowRuleEngine
                 {
                     return actual.ToString() == expectedStr;
                 }
-                if (actual is string actualStr && IsNumeric(expectedStr))
+                if (actual is string actualStr && expected is string expectedString && IsNumeric(expectedString))
                 {
                     return double.Parse(actualStr) == Convert.ToDouble(expected);
                 }

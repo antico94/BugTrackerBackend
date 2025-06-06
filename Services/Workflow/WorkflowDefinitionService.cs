@@ -296,4 +296,44 @@ public class WorkflowDefinitionService : IWorkflowDefinitionService
 
         return result;
     }
+
+    public async Task<WorkflowDefinition> SaveWorkflowDefinitionAsync(WorkflowDefinition definition)
+    {
+        var existing = await _context.WorkflowDefinitions
+            .FirstOrDefaultAsync(wd => wd.WorkflowDefinitionId == definition.WorkflowDefinitionId);
+
+        if (existing != null)
+        {
+            // Update existing
+            existing.Name = definition.Name;
+            existing.Description = definition.Description;
+            existing.Version = definition.Version;
+            existing.DefinitionJson = definition.DefinitionJson;
+            existing.IsActive = definition.IsActive;
+            existing.UpdatedAt = DateTime.UtcNow;
+            
+            _context.WorkflowDefinitions.Update(existing);
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+        else
+        {
+            // Create new
+            definition.WorkflowDefinitionId = Guid.NewGuid();
+            definition.CreatedAt = DateTime.UtcNow;
+            definition.UpdatedAt = DateTime.UtcNow;
+            
+            _context.WorkflowDefinitions.Add(definition);
+            await _context.SaveChangesAsync();
+            return definition;
+        }
+    }
+
+    public async Task<List<WorkflowDefinition>> GetActiveWorkflowDefinitionsAsync()
+    {
+        return await _context.WorkflowDefinitions
+            .Where(wd => wd.IsActive)
+            .OrderBy(wd => wd.Name)
+            .ToListAsync();
+    }
 }

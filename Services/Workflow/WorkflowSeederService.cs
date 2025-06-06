@@ -110,12 +110,20 @@ public class WorkflowSeederService
                 throw new InvalidOperationException($"Failed to deserialize workflow schema from file: {filePath}");
             }
 
-            // Validate the workflow schema
-            var validationResult = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(workflowSchema);
-            if (!validationResult.IsValid)
+            // Create a temporary workflow definition for validation
+            var tempDefinition = new WorkflowDefinition
             {
-                var errors = string.Join("; ", validationResult.Errors.Select(e => e.Message));
-                throw new InvalidOperationException($"Invalid workflow definition in file {filePath}: {errors}");
+                Name = workflowSchema.Name,
+                Description = workflowSchema.Description,
+                Version = "1.0.0"
+            };
+            tempDefinition.SetWorkflowSchema(workflowSchema);
+            
+            // Validate the workflow schema
+            var isValid = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(tempDefinition);
+            if (!isValid)
+            {
+                throw new InvalidOperationException($"Invalid workflow definition in file {filePath}");
             }
 
             // Check if definition already exists
@@ -214,8 +222,8 @@ public class WorkflowSeederService
             foreach (var definition in definitions)
             {
                 var schema = definition.GetWorkflowSchema();
-                var validationResult = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(schema);
-                results[definition.Name] = validationResult;
+                var isValid = await _workflowDefinitionService.ValidateWorkflowDefinitionAsync(definition);
+                results[definition.Name] = new WorkflowValidationResult { IsValid = isValid };
             }
         }
         catch (Exception ex)
