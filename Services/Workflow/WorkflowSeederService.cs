@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using BugTracker.Data;
 using BugTracker.Models.Workflow;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BugTracker.Services.Workflow;
 
@@ -102,7 +103,8 @@ public class WorkflowSeederService
             var workflowSchema = JsonSerializer.Deserialize<WorkflowSchema>(jsonContent, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                Converters = { new JsonStringEnumConverter() }
             });
 
             if (workflowSchema == null)
@@ -243,7 +245,8 @@ public class WorkflowSeederService
             var workflowSchema = JsonSerializer.Deserialize<WorkflowSchema>(jsonContent, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                Converters = { new JsonStringEnumConverter() }
             });
 
             if (workflowSchema?.Name != null)
