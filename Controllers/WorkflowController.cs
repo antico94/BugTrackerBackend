@@ -67,8 +67,32 @@ public class WorkflowController : ControllerBase
             
             if (workflowState == null)
             {
-                _logger.LogWarning("No workflow state found for task {TaskId}", taskId);
-                return NotFound(new { message = "Workflow state not found for this task" });
+                _logger.LogWarning("No workflow state found for task {TaskId} - task may have been created before workflow system", taskId);
+                
+                // Return a default response for tasks without workflow executions (legacy tasks)
+                var legacyResponse = new WorkflowStateResponse
+                {
+                    TaskId = taskId,
+                    WorkflowName = "Legacy Task (No Workflow)",
+                    Status = WorkflowExecutionStatus.Completed, // Assume legacy tasks are manually managed
+                    IsTaskComplete = false, // Let user interact with legacy tasks normally
+                    CurrentStep = null,
+                    AvailableActions = new List<WorkflowActionState>(),
+                    CompletedSteps = new List<WorkflowStepState>(),
+                    Context = new Dictionary<string, object>(),
+                    LastUpdated = DateTime.UtcNow,
+                    ErrorMessage = "This task was created before the workflow system. Please use manual task management.",
+                    ExecutionMetadata = new WorkflowExecutionMetadata
+                    {
+                        StartedAt = DateTime.UtcNow,
+                        PerformedBy = "Legacy System",
+                        TotalSteps = 0,
+                        CompletedStepsCount = 0,
+                        ProgressPercentage = 0
+                    }
+                };
+                
+                return Ok(legacyResponse);
             }
 
             var response = new WorkflowStateResponse
@@ -76,6 +100,7 @@ public class WorkflowController : ControllerBase
                 TaskId = taskId,
                 WorkflowName = workflowState.WorkflowName,
                 Status = workflowState.Status,
+                IsTaskComplete = workflowState.Status == WorkflowExecutionStatus.Completed,
                 CurrentStep = workflowState.CurrentStep != null ? new WorkflowStepState
                 {
                     StepId = workflowState.CurrentStep.StepId,
@@ -361,6 +386,7 @@ public class WorkflowStateResponse
     public Guid TaskId { get; set; }
     public string WorkflowName { get; set; } = string.Empty;
     public WorkflowExecutionStatus Status { get; set; }
+    public bool IsTaskComplete { get; set; }
     public WorkflowStepState? CurrentStep { get; set; }
     public List<WorkflowActionState> AvailableActions { get; set; } = new();
     public List<WorkflowStepState> CompletedSteps { get; set; } = new();
